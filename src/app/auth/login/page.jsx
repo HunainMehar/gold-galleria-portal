@@ -103,23 +103,22 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-background to-default-100">
-      {/* Left Side - Decorative/Info */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-primary text-primary-foreground">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <ShieldCheck className="h-8 w-8" />
-            Dash Admin
+            Gold Galleria
           </h1>
-          <p className="mt-2 opacity-80">Dashboard & Expense Management</p>
+          <p className="mt-2 opacity-80">Inventory & Sales Management System</p>
         </div>
 
         <div className="space-y-8">
           <div className="relative">
             <div className="absolute -left-6 top-0 h-full w-1 bg-primary-foreground opacity-30 rounded"></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Expense Tracking</h3>
+              <h3 className="text-xl font-semibold">Inventory Tracking</h3>
               <p className="opacity-80">
-                Monitor all your business expenses in one place
+                Keep track of all your jewelry stock in one place
               </p>
             </div>
           </div>
@@ -127,9 +126,9 @@ export default function LoginPage() {
           <div className="relative">
             <div className="absolute -left-6 top-0 h-full w-1 bg-primary-foreground opacity-30 rounded"></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Category Management</h3>
+              <h3 className="text-xl font-semibold">Sales Management</h3>
               <p className="opacity-80">
-                Organize expenses with customizable categories
+                Manage and monitor your sales efficiently
               </p>
             </div>
           </div>
@@ -137,9 +136,9 @@ export default function LoginPage() {
           <div className="relative">
             <div className="absolute -left-6 top-0 h-full w-1 bg-primary-foreground opacity-30 rounded"></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Insightful Dashboard</h3>
+              <h3 className="text-xl font-semibold">Analytics Dashboard</h3>
               <p className="opacity-80">
-                View analytics and reports at a glance
+                Gain insights into your business performance
               </p>
             </div>
           </div>
@@ -147,7 +146,7 @@ export default function LoginPage() {
 
         <div className="flex items-center gap-2 text-sm opacity-70">
           <Laptop size={18} />
-          <span>© 2025 Dash Admin. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Gold Galleria. All rights reserved.</span>
         </div>
       </div>
 
@@ -157,7 +156,7 @@ export default function LoginPage() {
           <CardHeader className="flex flex-col gap-1 items-center pb-0">
             <h1 className="text-2xl font-bold">Welcome Back</h1>
             <p className="text-small text-default-500">
-              Sign in to your account
+              Sign in to manage your inventory and sales
             </p>
           </CardHeader>
 
@@ -258,7 +257,7 @@ export default function LoginPage() {
             <p className="text-center text-default-500 text-sm">
               Need help? Contact{" "}
               <Link href="#" className="text-primary">
-                support@dashadmin.com
+                support@goldgalleria.com
               </Link>
             </p>
           </CardFooter>
