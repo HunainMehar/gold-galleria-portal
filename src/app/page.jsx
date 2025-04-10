@@ -34,9 +34,9 @@ export default function RootPage() {
         <div className="flex justify-center mb-4">
           <ShieldCheck className="h-12 w-12 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">Dash Admin</h1>
+        <h1 className="text-2xl font-bold mb-2">Gold Galleria Portal</h1>
         <p className="text-default-600 mb-6">
-          Welcome to your expense management system
+          Welcome to your Gold Galleria Portal
         </p>
         <div className="flex justify-center">
           <Spinner color="primary" size="lg" />

@@ -129,7 +129,7 @@ export default function ResetPasswordPage() {
         <CardHeader className="flex flex-col gap-1 items-center pb-0">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Dash Admin</h1>
+            <h1 className="text-2xl font-bold">Gold Galleria Portal</h1>
           </div>
           <p className="text-default-500 mt-1">
             {mode === "request" ? "Reset your password" : "Set new password"}
