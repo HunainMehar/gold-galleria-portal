@@ -126,11 +126,11 @@ export default function ResponsiveLayout({ children }) {
                   }`}
                 >
                   <div className="flex items-center justify-center rounded-full">
-                    <Image src="/Logo.png" alt="Logo" width={42} />
+                    {/* <Image src="./" alt="Logo" width={42} /> */}
                   </div>
                   {(!isCollapsed || isMobile) && (
                     <span className="text-sm font-bold uppercase whitespace-nowrap tracking-wide">
-                      Dash Admin
+                      Gold Galleria Portal
                     </span>
                   )}
                 </div>
@@ -167,7 +167,7 @@ export default function ResponsiveLayout({ children }) {
               >
                 {isCollapsed && !isMobile ? (
                   <>
-                    <Tooltip content="Help & Support" placement="right">
+                    {/* <Tooltip content="Help & Support" placement="right">
                       <Button
                         isIconOnly
                         className="justify-center mb-3"
@@ -175,7 +175,7 @@ export default function ResponsiveLayout({ children }) {
                       >
                         <HelpCircle size={20} className="text-default-500" />
                       </Button>
-                    </Tooltip>
+                    </Tooltip> */}
 
                     <Tooltip content="Log Out" placement="right">
                       <Button
@@ -190,7 +190,7 @@ export default function ResponsiveLayout({ children }) {
                   </>
                 ) : (
                   <>
-                    <Button
+                    {/* <Button
                       fullWidth
                       className="justify-start text-default-500 data-[hover=true]:text-foreground h-10"
                       startContent={
@@ -202,7 +202,7 @@ export default function ResponsiveLayout({ children }) {
                       variant="light"
                     >
                       <span className="truncate">Help & Support</span>
-                    </Button>
+                    </Button> */}
 
                     <Button
                       fullWidth
