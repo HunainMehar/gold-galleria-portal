@@ -1,0 +1,82 @@
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
+
+export async function middleware(req) {
+    // Clone the request URL
+    const url = req.nextUrl.clone();
+
+    // Create a response object
+    const res = NextResponse.next();
+
+    try {
+        // Create Supabase client
+        const supabase = createMiddlewareClient({ req, res });
+
+        // Get session data
+        const { data: { session } } = await supabase.auth.getSession();
+
+        // Check if the user is authenticated
+        const isAuth = !!session;
+
+        // Check if the current page is an auth page
+        const isAuthPage =
+            url.pathname === '/auth/login' ||
+            url.pathname === '/auth/reset-password' ||
+            url.pathname === '/';
+
+        // Get the referer (previous page)
+        const referer = req.headers.get('referer') || '';
+        const isFromLogin = referer.includes('/auth/login');
+        const isFromDashboard = referer.includes('/home/dashboard');
+
+        // Special case: User just logged in and is being redirected to dashboard
+        // Allow this transition without interference
+        if (isFromLogin && url.pathname.startsWith('/home/') && isAuth) {
+            return res;
+        }
+
+        // Special case: User just logged out and is being redirected to login
+        // Allow this transition without interference
+        if (isFromDashboard && url.pathname === '/auth/login' && !isAuth) {
+            return res;
+        }
+
+        // If user is not authenticated and trying to access a protected route
+        if (!isAuth && !isAuthPage) {
+            const redirectUrl = new URL('/auth/login', req.url);
+            return NextResponse.redirect(redirectUrl);
+        }
+
+        // If user is authenticated and trying to access an auth page
+        if (isAuth && isAuthPage) {
+            const redirectUrl = new URL('/home/dashboard', req.url);
+            return NextResponse.redirect(redirectUrl);
+        }
+
+        // For root path (/) redirect to appropriate page based on auth status
+        if (url.pathname === '/') {
+            const redirectUrl = new URL(isAuth ? '/home/dashboard' : '/auth/login', req.url);
+            return NextResponse.redirect(redirectUrl);
+        }
+
+        return res;
+    } catch (error) {
+        console.error('Middleware error:', error);
+
+        // In case of error, allow the request to proceed to avoid redirect loops
+        return res;
+    }
+}
+
+export const config = {
+    matcher: [
+        /*
+         * Match all request paths except for the ones starting with:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         * - public folder
+         */
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    ],
+};
