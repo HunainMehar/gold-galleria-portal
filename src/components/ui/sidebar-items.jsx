@@ -8,6 +8,8 @@ import {
   CreditCard,
   HelpCircle,
   Users as UsersIcon,
+  Package,
+  Archive,
 } from "lucide-react";
 
 // Define the SidebarItemType enum
@@ -41,6 +43,18 @@ export const adminItems = [
         href: "/home/categories",
         icon: Tag,
         title: "Categories",
+      },
+      {
+        key: "items",
+        href: "/home/items",
+        icon: Package,
+        title: "Items",
+      },
+      {
+        key: "inventory",
+        href: "/home/inventory",
+        icon: Archive,
+        title: "Inventory",
       },
       // {
       //   key: "users",
