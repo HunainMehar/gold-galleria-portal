@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardBody, CardHeader, Divider, Spinner } from "@heroui/react";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Divider,
+  Spinner,
+  Chip,
+} from "@heroui/react";
 import { expenseApi, categoryApi } from "@/lib/supabase/client";
+import GoldRateCalculator from "@/components/ui/gold-rate-calculator";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -10,7 +18,9 @@ export default function DashboardPage() {
     totalExpenses: 0,
     categoryCount: 0,
     recentExpenses: [],
+    filteredExpenses: [],
   });
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -36,6 +46,7 @@ export default function DashboardPage() {
           totalExpenses,
           categoryCount: categories.length,
           recentExpenses,
+          filteredExpenses: recentExpenses, // Initially show all expenses
         });
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -46,6 +57,58 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  const filterExpenses = (filter) => {
+    setActiveFilter(filter);
+
+    const now = new Date();
+    let filteredExpenses = summary.recentExpenses;
+
+    switch (filter) {
+      case "today":
+        // Filter for today (same day)
+        filteredExpenses = summary.recentExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.created_at);
+          return expenseDate.toDateString() === now.toDateString();
+        });
+        break;
+      case "week":
+        // Filter for last 7 days
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        filteredExpenses = summary.recentExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.created_at);
+          return expenseDate >= weekAgo;
+        });
+        break;
+      case "month":
+        // Filter for last 30 days
+        const monthAgo = new Date(now);
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        filteredExpenses = summary.recentExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.created_at);
+          return expenseDate >= monthAgo;
+        });
+        break;
+      case "3months":
+        // Filter for last 90 days
+        const threeMonthsAgo = new Date(now);
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+        filteredExpenses = summary.recentExpenses.filter((expense) => {
+          const expenseDate = new Date(expense.created_at);
+          return expenseDate >= threeMonthsAgo;
+        });
+        break;
+      default:
+        // Show all by default
+        filteredExpenses = summary.recentExpenses;
+    }
+
+    setSummary((prev) => ({
+      ...prev,
+      filteredExpenses,
+    }));
+  };
 
   if (loading) {
     return (
@@ -81,15 +144,62 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Gold Rate Calculator */}
+      <div className="mb-6">
+        <GoldRateCalculator />
+      </div>
+
       <Card>
-        <CardHeader>
+        <CardHeader className="flex justify-between items-center flex-wrap">
           <h2 className="text-lg font-medium">Recent Expenses</h2>
+          <div className="flex gap-2 mt-2 sm:mt-0 flex-wrap">
+            <Chip
+              color={activeFilter === "all" ? "primary" : "default"}
+              variant={activeFilter === "all" ? "solid" : "flat"}
+              className="cursor-pointer"
+              onClick={() => filterExpenses("all")}
+            >
+              All
+            </Chip>
+            <Chip
+              color={activeFilter === "today" ? "primary" : "default"}
+              variant={activeFilter === "today" ? "solid" : "flat"}
+              className="cursor-pointer"
+              onClick={() => filterExpenses("today")}
+            >
+              Today
+            </Chip>
+            <Chip
+              color={activeFilter === "week" ? "primary" : "default"}
+              variant={activeFilter === "week" ? "solid" : "flat"}
+              className="cursor-pointer"
+              onClick={() => filterExpenses("week")}
+            >
+              7 Days
+            </Chip>
+            <Chip
+              color={activeFilter === "month" ? "primary" : "default"}
+              variant={activeFilter === "month" ? "solid" : "flat"}
+              className="cursor-pointer"
+              onClick={() => filterExpenses("month")}
+            >
+              1 Month
+            </Chip>
+            <Chip
+              color={activeFilter === "3months" ? "primary" : "default"}
+              variant={activeFilter === "3months" ? "solid" : "flat"}
+              className="cursor-pointer"
+              onClick={() => filterExpenses("3months")}
+            >
+              3 Months
+            </Chip>
+          </div>
         </CardHeader>
         <Divider />
         <CardBody>
-          {summary.recentExpenses.length > 0 ? (
+          {summary.filteredExpenses.length > 0 ? (
             <div className="space-y-4">
-              {summary.recentExpenses.map((expense) => (
+              {summary.filteredExpenses.map((expense) => (
                 <div
                   key={expense.id}
                   className="flex justify-between items-center"
@@ -106,7 +216,9 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-default-500">No recent expenses found.</p>
+            <p className="text-default-500">
+              No expenses found for the selected period.
+            </p>
           )}
         </CardBody>
       </Card>
