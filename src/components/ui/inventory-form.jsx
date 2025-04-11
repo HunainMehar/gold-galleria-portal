@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
   Button,
@@ -27,6 +29,7 @@ import {
   Calculator,
   Award,
   X,
+  Upload,
 } from "lucide-react";
 
 export default function InventoryForm({
@@ -51,6 +54,7 @@ export default function InventoryForm({
 
   const [items, setItems] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const [isFetchingItems, setIsFetchingItems] = React.useState(true);
   const [error, setError] = React.useState("");
   const [calculatedValues, setCalculatedValues] = React.useState({
@@ -58,6 +62,7 @@ export default function InventoryForm({
     pure_gold: 0,
   });
   const [previewImages, setPreviewImages] = React.useState([]);
+  const [imageUrls, setImageUrls] = React.useState([]);
 
   const isEditMode = !!inventoryItem;
 
@@ -82,11 +87,21 @@ export default function InventoryForm({
   // Set form data if editing
   React.useEffect(() => {
     if (inventoryItem) {
-      const imagesArray = Array.isArray(inventoryItem.images)
-        ? inventoryItem.images
-        : typeof inventoryItem.images === "string"
-          ? JSON.parse(inventoryItem.images)
-          : [];
+      let imagesArray = [];
+
+      // Parse images data based on its type
+      if (inventoryItem.images) {
+        if (Array.isArray(inventoryItem.images)) {
+          imagesArray = inventoryItem.images;
+        } else if (typeof inventoryItem.images === "string") {
+          try {
+            imagesArray = JSON.parse(inventoryItem.images);
+          } catch (e) {
+            console.error("Failed to parse images JSON:", e);
+            imagesArray = [];
+          }
+        }
+      }
 
       setFormData({
         item_id: inventoryItem.item_id || "",
@@ -100,6 +115,21 @@ export default function InventoryForm({
         ratti: inventoryItem.ratti || 0,
         images: imagesArray,
       });
+
+      // If there are existing image URLs, set them
+      const validImages = imagesArray.filter(
+        (img) => img && (img.url || typeof img === "string")
+      );
+      if (validImages.length > 0) {
+        // Convert string URLs to object format if needed
+        const formattedImages = validImages.map((img) => {
+          if (typeof img === "string") {
+            return { url: img, name: "Unnamed image" };
+          }
+          return img;
+        });
+        setImageUrls(formattedImages);
+      }
     } else {
       setFormData({
         item_id: "",
@@ -113,6 +143,8 @@ export default function InventoryForm({
         ratti: 0,
         images: [],
       });
+      setImageUrls([]);
+      setPreviewImages([]);
     }
   }, [inventoryItem, isOpen]);
 
@@ -140,33 +172,92 @@ export default function InventoryForm({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
-    const newImages = [];
-    const newPreviews = [];
+    if (!files.length) return;
 
-    files.forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        newImages.push(file);
-        const previewUrl = URL.createObjectURL(file);
-        newPreviews.push(previewUrl);
-      }
-    });
+    setIsUploading(true);
+    setError("");
 
-    setFormData((prev) => ({
-      ...prev,
-      images: [...prev.images, ...newImages],
-    }));
+    // Create preview URLs for immediate display
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
     setPreviewImages((prev) => [...prev, ...newPreviews]);
+
+    try {
+      // Process one file at a time
+      let successCount = 0;
+      let newUrls = [];
+
+      for (const file of files) {
+        try {
+          console.log(
+            `Starting upload for file: ${file.name} (${file.type}, ${file.size} bytes)`
+          );
+
+          // Upload the file to Supabase Storage
+          const imageUrl = await inventoryApi.uploadImage(file);
+
+          if (imageUrl) {
+            console.log(`Upload successful: ${imageUrl}`);
+            newUrls.push({
+              url: imageUrl,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+            });
+            successCount++;
+          }
+        } catch (uploadErr) {
+          console.error(
+            `Error uploading file ${file.name}:`,
+            uploadErr.message || uploadErr
+          );
+          // Continue with other files even if one fails
+        }
+      }
+
+      if (newUrls.length > 0) {
+        // Add the new URLs to state
+        setImageUrls((prev) => [...prev, ...newUrls]);
+
+        // Show success message
+        addToast({
+          title: "Images Uploaded",
+          description: `Successfully uploaded ${successCount} out of ${files.length} image${files.length !== 1 ? "s" : ""}`,
+          color: "success",
+          variant: "flat",
+          radius: "md",
+          icon: "success",
+        });
+      } else {
+        throw new Error("No images were successfully uploaded");
+      }
+    } catch (err) {
+      console.error("Image upload process failed:", err.message || err);
+      setError("Failed to upload images. Please try again.");
+
+      addToast({
+        title: "Upload Failed",
+        description: err.message || "There was a problem uploading your images",
+        color: "danger",
+        variant: "flat",
+        radius: "md",
+        icon: "error",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const removeImage = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }));
-    URL.revokeObjectURL(previewImages[index]);
-    setPreviewImages((prev) => prev.filter((_, i) => i !== index));
+    // Remove from preview images
+    if (previewImages[index]) {
+      URL.revokeObjectURL(previewImages[index]);
+      setPreviewImages((prev) => prev.filter((_, i) => i !== index));
+    }
+
+    // Remove from image URLs
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Clean up object URLs
@@ -194,10 +285,27 @@ export default function InventoryForm({
         return;
       }
 
+      // Convert imageUrls to the expected JSONB format for the database
+      // Make sure we're passing an array of valid JSON objects
+      const processedImages = imageUrls.map((img) => ({
+        url: img.url,
+        name: img.name || "Unnamed image",
+        type: img.type || "image/jpeg",
+        size: img.size || 0,
+      }));
+
+      // Prepare form data with image URLs
+      const dataToSubmit = {
+        ...formData,
+        images: processedImages, // Use the properly formatted images array
+      };
+
+      console.log("Submitting inventory data with images:", processedImages);
+
       if (isEditMode) {
-        await inventoryApi.updateInventory(inventoryItem.id, formData);
+        await inventoryApi.updateInventory(inventoryItem.id, dataToSubmit);
       } else {
-        await inventoryApi.createInventory(formData);
+        await inventoryApi.createInventory(dataToSubmit);
       }
 
       onOpenChange(false);
@@ -475,19 +583,31 @@ export default function InventoryForm({
                   accept="image/*"
                   onChange={handleImageUpload}
                   startContent={
-                    <ImageIcon size={16} className="text-default-400" />
+                    <Upload size={16} className="text-default-400" />
                   }
                   description="Upload one or multiple images"
+                  isDisabled={isUploading}
                 />
 
-                {previewImages.length > 0 && (
+                {isUploading && (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="flex items-center gap-2 text-primary">
+                      <div className="animate-spin">
+                        <ImageIcon size={16} />
+                      </div>
+                      <span>Uploading images...</span>
+                    </div>
+                  </div>
+                )}
+
+                {imageUrls.length > 0 && (
                   <div className="flex flex-wrap gap-4 mt-4">
-                    {previewImages.map((preview, index) => (
+                    {imageUrls.map((image, index) => (
                       <div key={index} className="relative group">
                         <Image
-                          src={preview}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg group-hover:opacity-30 transition-opacity"
+                          src={image.url}
+                          alt={image.name || `Image ${index + 1}`}
+                          className="w-32 h-32 object-cover rounded-lg group-hover:opacity-70 transition-opacity"
                         />
                         <Button
                           isIconOnly
