@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import React from "react";
 import {
   Button,
   Input,
@@ -14,6 +12,7 @@ import {
   ModalFooter,
   Chip,
   Divider,
+  Image,
   addToast,
 } from "@heroui/react";
 import { inventoryApi, itemApi } from "@/lib/supabase/client";
@@ -27,6 +26,7 @@ import {
   Image as ImageIcon,
   Calculator,
   Award,
+  X,
 } from "lucide-react";
 
 export default function InventoryForm({
@@ -36,11 +36,11 @@ export default function InventoryForm({
   onSuccess,
   suppressSuccessToast = false,
 }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = React.useState({
     item_id: "",
     description: "",
     quantity: 1,
-    karat: 22, // Default value
+    karat: 22,
     net_weight: "",
     wasteage_percentage: 0,
     polish_weight: 0,
@@ -49,19 +49,20 @@ export default function InventoryForm({
     images: [],
   });
 
-  const [items, setItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingItems, setIsFetchingItems] = useState(true);
-  const [error, setError] = useState("");
-  const [calculatedValues, setCalculatedValues] = useState({
+  const [items, setItems] = React.useState([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isFetchingItems, setIsFetchingItems] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [calculatedValues, setCalculatedValues] = React.useState({
     total_weight: 0,
     pure_gold: 0,
   });
+  const [previewImages, setPreviewImages] = React.useState([]);
 
   const isEditMode = !!inventoryItem;
 
   // Fetch items for the dropdown
-  useEffect(() => {
+  React.useEffect(() => {
     const fetchItems = async () => {
       try {
         setIsFetchingItems(true);
@@ -79,9 +80,8 @@ export default function InventoryForm({
   }, []);
 
   // Set form data if editing
-  useEffect(() => {
+  React.useEffect(() => {
     if (inventoryItem) {
-      // Extract the images array from the inventoryItem
       const imagesArray = Array.isArray(inventoryItem.images)
         ? inventoryItem.images
         : typeof inventoryItem.images === "string"
@@ -101,7 +101,6 @@ export default function InventoryForm({
         images: imagesArray,
       });
     } else {
-      // Reset form for new item
       setFormData({
         item_id: "",
         description: "",
@@ -117,9 +116,8 @@ export default function InventoryForm({
     }
   }, [inventoryItem, isOpen]);
 
-  // Calculate derived values when form data changes
-  useEffect(() => {
-    // Calculate total weight
+  // Calculate derived values
+  React.useEffect(() => {
     const netWeight = parseFloat(formData.net_weight) || 0;
     const wasteage =
       (netWeight * (parseFloat(formData.wasteage_percentage) || 0)) / 100;
@@ -127,7 +125,6 @@ export default function InventoryForm({
     const stoneWeight = parseFloat(formData.stone_weight) || 0;
     const totalWeight = netWeight + wasteage + polishWeight + stoneWeight;
 
-    // Calculate pure gold
     const karat = parseFloat(formData.karat) || 0;
     const ratti = parseFloat(formData.ratti) || 0;
     const pureGold = (netWeight / 96) * (96 - ratti);
@@ -143,13 +140,48 @@ export default function InventoryForm({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newImages = [];
+    const newPreviews = [];
+
+    files.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        newImages.push(file);
+        const previewUrl = URL.createObjectURL(file);
+        newPreviews.push(previewUrl);
+      }
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...newImages],
+    }));
+    setPreviewImages((prev) => [...prev, ...newPreviews]);
+  };
+
+  const removeImage = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+    URL.revokeObjectURL(previewImages[index]);
+    setPreviewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Clean up object URLs
+  React.useEffect(() => {
+    return () => {
+      previewImages.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      // Validate inputs
       if (!formData.item_id) {
         setError("Please select an item");
         setIsLoading(false);
@@ -168,11 +200,9 @@ export default function InventoryForm({
         await inventoryApi.createInventory(formData);
       }
 
-      // Close modal and trigger success callback
       onOpenChange(false);
       onSuccess();
 
-      // Show success toast only if not suppressed
       if (!suppressSuccessToast) {
         addToast({
           title: isEditMode ? "Inventory Updated" : "Inventory Added",
@@ -189,7 +219,6 @@ export default function InventoryForm({
       console.error("Error saving inventory item:", err);
       setError(err.message || "Failed to save inventory item");
 
-      // Show error toast
       addToast({
         title: "Failed to Save",
         description: err.message || "An unexpected error occurred",
@@ -209,7 +238,7 @@ export default function InventoryForm({
         <ModalHeader>
           {isEditMode ? "Edit Inventory Item" : "Add New Inventory Item"}
         </ModalHeader>
-        <ModalBody>
+        <ModalBody className="max-h-[80vh] overflow-y-auto">
           {error && (
             <div className="mb-4 p-3 bg-danger-50 text-danger rounded-lg">
               {error}
@@ -221,7 +250,6 @@ export default function InventoryForm({
             onSubmit={handleSubmit}
             className="space-y-4"
           >
-            {/* Basic Information Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <Tag size={16} className="text-primary" />
@@ -243,14 +271,28 @@ export default function InventoryForm({
                 )}
 
                 <Select
+                  name="item_id"
                   label="Item"
-                  placeholder={
-                    isFetchingItems ? "Loading items..." : "Select an item"
-                  }
                   selectedKeys={formData.item_id ? [formData.item_id] : []}
-                  onChange={(e) =>
-                    setFormData({ ...formData, item_id: e.target.value })
-                  }
+                  renderValue={() => {
+                    const selectedItem = items.find(
+                      (item) => item.id === formData.item_id
+                    );
+                    return selectedItem
+                      ? `${selectedItem.name} ${
+                          selectedItem.abbreviation
+                            ? `(${selectedItem.abbreviation})`
+                            : ""
+                        }`
+                      : "Select an item";
+                  }}
+                  onSelectionChange={(keys) => {
+                    const selectedKey = Array.from(keys)[0];
+                    setFormData({
+                      ...formData,
+                      item_id: selectedKey,
+                    });
+                  }}
                   startContent={
                     <Package size={16} className="text-default-400" />
                   }
@@ -290,10 +332,8 @@ export default function InventoryForm({
                 />
               </div>
             </div>
-
             <Divider />
 
-            {/* Weight and Measurements Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <Scale size={16} className="text-primary" />
@@ -390,9 +430,7 @@ export default function InventoryForm({
                 />
               </div>
             </div>
-
             <Divider />
-
             {/* Calculated Values Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
@@ -422,26 +460,47 @@ export default function InventoryForm({
                 />
               </div>
             </div>
-
             <Divider />
-
-            {/* Images Section - Placeholder for now */}
+            {/* Images Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <ImageIcon size={16} className="text-primary" />
                 <h3 className="text-medium font-semibold">Images</h3>
               </div>
 
-              <div className="p-4 border border-dashed border-default-300 rounded-lg text-center">
-                <p className="text-default-500">
-                  Image upload functionality will be implemented in a future
-                  update.
-                </p>
-                {formData.images.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-sm text-default-600">
-                      {formData.images.length} image(s) attached
-                    </p>
+              <div className="space-y-4">
+                <Input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  startContent={
+                    <ImageIcon size={16} className="text-default-400" />
+                  }
+                  description="Upload one or multiple images"
+                />
+
+                {previewImages.length > 0 && (
+                  <div className="flex flex-wrap gap-4 mt-4">
+                    {previewImages.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <Image
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg group-hover:opacity-30 transition-opacity"
+                        />
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          color="danger"
+                          variant="flat"
+                          className="absolute z-10 top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onPress={() => removeImage(index)}
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
