@@ -22,6 +22,8 @@ import {
   PopoverTrigger,
   PopoverContent,
   Image,
+  Chip,
+  Tooltip,
 } from "@heroui/react";
 import { inventoryApi } from "@/lib/supabase/client";
 import InventoryForm from "@/components/ui/inventory-form";
@@ -31,6 +33,11 @@ import {
   Search,
   Tag,
   Image as ImageIcon,
+  Filter,
+  SlidersHorizontal,
+  Download,
+  FileText,
+  Hash,
 } from "lucide-react";
 
 export default function InventoryPage() {
@@ -107,6 +114,12 @@ export default function InventoryPage() {
     onOpen();
   };
 
+  const handleViewDetails = (item) => {
+    // This could be expanded in the future to show a detailed view
+    setCurrentItem(item);
+    onOpen();
+  };
+
   const formatWeight = (weight) => {
     return parseFloat(weight).toFixed(3) + " g";
   };
@@ -147,6 +160,25 @@ export default function InventoryPage() {
     return null;
   };
 
+  // Calculate total counts and weights
+  const inventorySummary = filteredInventory.reduce(
+    (summary, item) => {
+      const pieces = item.no_of_pieces || item.quantity || 0;
+      summary.totalPieces += pieces;
+      summary.totalNetWeight += parseFloat(item.net_weight) || 0;
+      summary.totalGoldWeight += parseFloat(item.pure_gold) || 0;
+      return summary;
+    },
+    { totalPieces: 0, totalNetWeight: 0, totalGoldWeight: 0 }
+  );
+
+  // Get pieces count, handling both no_of_pieces and quantity fields during transition
+  const getPiecesCount = (item) => {
+    return item.no_of_pieces !== undefined
+      ? item.no_of_pieces
+      : item.quantity || 0;
+  };
+
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredInventory.slice(
@@ -154,17 +186,112 @@ export default function InventoryPage() {
     startIndex + itemsPerPage
   );
 
+  // Function to export inventory data to CSV
+  const exportToCSV = () => {
+    try {
+      // Prepare CSV headers and data
+      const headers = [
+        "Tag Number",
+        "Item",
+        "Description",
+        "No. of Pieces",
+        "Karat",
+        "Net Weight (g)",
+        "Total Weight (g)",
+        "Pure Gold (g)",
+        "Status",
+        "Date Added",
+      ];
+
+      // Map inventory data to CSV rows
+      const rows = filteredInventory.map((item) => [
+        item.tag_number || "",
+        (item.item?.name || "") +
+          (item.item?.abbreviation ? ` (${item.item.abbreviation})` : ""),
+        item.description || "",
+        getPiecesCount(item),
+        item.karat || "",
+        item.net_weight ? parseFloat(item.net_weight).toFixed(3) : "0.000",
+        item.total_weight ? parseFloat(item.total_weight).toFixed(3) : "0.000",
+        item.pure_gold ? parseFloat(item.pure_gold).toFixed(3) : "0.000",
+        item.status || "available",
+        new Date(item.created_at).toLocaleDateString(),
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) =>
+          row
+            .map((cell) =>
+              // Handle cells that might need quotes (if they contain commas, quotes, or newlines)
+              typeof cell === "string" &&
+              (cell.includes(",") || cell.includes('"') || cell.includes("\n"))
+                ? `"${cell.replace(/"/g, '""')}"`
+                : cell
+            )
+            .join(",")
+        ),
+      ].join("\n");
+
+      // Create a blob and download link
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `inventory_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      addToast({
+        title: "Export Successful",
+        description: "Inventory data has been exported to CSV",
+        color: "success",
+        variant: "flat",
+        radius: "md",
+        icon: "success",
+      });
+    } catch (error) {
+      console.error("Error exporting inventory data:", error);
+      addToast({
+        title: "Export Failed",
+        description: "There was a problem exporting the inventory data",
+        color: "danger",
+        variant: "flat",
+        radius: "md",
+        icon: "error",
+      });
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Inventory</h1>
-        <Button
-          color="primary"
-          onPress={handleAddInventory}
-          startContent={<PlusCircle size={18} />}
-        >
-          Add Item
-        </Button>
+        <div className="flex gap-2">
+          {/* <Tooltip content="Export inventory to CSV">
+            <Button
+              variant="flat"
+              color="secondary"
+              onPress={exportToCSV}
+              startContent={<Download size={18} />}
+              isDisabled={filteredInventory.length === 0}
+            >
+              Export
+            </Button>
+          </Tooltip> */}
+          <Button
+            color="primary"
+            onPress={handleAddInventory}
+            startContent={<PlusCircle size={18} />}
+          >
+            Add Item
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -176,6 +303,49 @@ export default function InventoryPage() {
           className="flex-grow"
           clearable
         />
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-default-500">Total Items</p>
+                <p className="text-xl font-semibold">
+                  {filteredInventory.length}
+                </p>
+              </div>
+              <FileText size={24} className="text-primary opacity-70" />
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-default-500">Total Pieces</p>
+                <p className="text-xl font-semibold">
+                  {inventorySummary.totalPieces}
+                </p>
+              </div>
+              <Hash size={24} className="text-primary opacity-70" />
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-default-500">Total Gold Weight</p>
+                <p className="text-xl font-semibold">
+                  {inventorySummary.totalGoldWeight.toFixed(3)} g
+                </p>
+              </div>
+              <Tag size={24} className="text-primary opacity-70" />
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
       <Card>
@@ -196,7 +366,7 @@ export default function InventoryPage() {
               <Table aria-label="Inventory items table">
                 <TableHeader>
                   <TableColumn>Item</TableColumn>
-                  <TableColumn>Quantity</TableColumn>
+                  <TableColumn>No. of Pieces</TableColumn>
                   <TableColumn>Net Weight</TableColumn>
                   <TableColumn>Total Weight</TableColumn>
                   <TableColumn>Karat</TableColumn>
@@ -248,7 +418,7 @@ export default function InventoryPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{item.quantity || 0}</TableCell>
+                      <TableCell>{getPiecesCount(item)}</TableCell>
                       <TableCell>{formatWeight(item.net_weight)}</TableCell>
                       <TableCell>{formatWeight(item.total_weight)}</TableCell>
                       <TableCell>{item.karat}K</TableCell>
