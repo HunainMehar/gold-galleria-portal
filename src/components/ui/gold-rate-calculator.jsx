@@ -26,7 +26,7 @@ export default function GoldRateCalculator() {
   const [karatRates, setKaratRates] = useState([]);
 
   // Karats to calculate
-  const karats = [24, 22, 21, 18, 16, 14, 12, 10];
+  const karats = Array.from({ length: 24 }, (_, i) => 24 - i);
 
   // Fetch the current gold rate from the database
   useEffect(() => {
@@ -150,11 +150,12 @@ export default function GoldRateCalculator() {
         )}
       </CardHeader>
       <CardBody>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-6">
           <div>
-            <div className="flex items-end gap-2 mb-6">
+            <div className="flex items-end gap-2">
               <Input
-                label="Today's 24K Gold Rate (per gram)"
+                size="sm"
+                label="Today's 24K Gold Rate (per tola)"
                 placeholder="Enter rate"
                 value={rate24k}
                 onChange={handleRateChange}
@@ -165,9 +166,9 @@ export default function GoldRateCalculator() {
                 step="0.01"
                 min="0"
                 isDisabled={!isEditing}
-                description="Enter the current market rate for 24K gold"
               />
               <Button
+                size="md"
                 color={isEditing ? "success" : "primary"}
                 onPress={isEditing ? saveRate : toggleEdit}
                 isLoading={isLoading}
@@ -178,14 +179,6 @@ export default function GoldRateCalculator() {
                 {isEditing ? "Save Rate" : "Update Rate"}
               </Button>
             </div>
-
-            <div className="text-sm text-default-500 mb-6">
-              <p>
-                Enter the market rate for 24K gold to calculate rates for other
-                karats.
-              </p>
-              <p>Formula: Rate for XK = (24K Rate ÷ 24) × X</p>
-            </div>
           </div>
 
           <div>
@@ -193,7 +186,7 @@ export default function GoldRateCalculator() {
               <TableHeader>
                 <TableColumn>Karat</TableColumn>
                 <TableColumn>Purity</TableColumn>
-                <TableColumn>Rate (per gram)</TableColumn>
+                <TableColumn>Rate (per tola)</TableColumn>
               </TableHeader>
               <TableBody>
                 {karatRates.map((item) => (
