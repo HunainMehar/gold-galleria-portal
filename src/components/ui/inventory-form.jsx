@@ -30,6 +30,7 @@ import {
   Award,
   X,
   Upload,
+  Hash,
 } from "lucide-react";
 
 export default function InventoryForm({
@@ -42,7 +43,7 @@ export default function InventoryForm({
   const [formData, setFormData] = React.useState({
     item_id: "",
     description: "",
-    quantity: 1,
+    no_of_pieces: 1,
     karat: 22,
     net_weight: "",
     wasteage_percentage: 0,
@@ -106,7 +107,7 @@ export default function InventoryForm({
       setFormData({
         item_id: inventoryItem.item_id || "",
         description: inventoryItem.description || "",
-        quantity: inventoryItem.quantity || 1,
+        no_of_pieces: inventoryItem.no_of_pieces || inventoryItem.quantity || 1, // Support both fields during transition
         karat: inventoryItem.karat || 22,
         net_weight: inventoryItem.net_weight || "",
         wasteage_percentage: inventoryItem.wasteage_percentage || 0,
@@ -134,7 +135,7 @@ export default function InventoryForm({
       setFormData({
         item_id: "",
         description: "",
-        quantity: 1,
+        no_of_pieces: 1,
         karat: 22,
         net_weight: "",
         wasteage_percentage: 0,
@@ -429,13 +430,13 @@ export default function InventoryForm({
                 />
 
                 <Input
-                  name="quantity"
-                  label="Quantity"
+                  name="no_of_pieces"
+                  label="No. of Pieces"
                   type="number"
                   min="1"
-                  value={formData.quantity.toString()}
+                  value={formData.no_of_pieces.toString()}
                   onChange={handleChange}
-                  startContent={<Tag size={16} className="text-default-400" />}
+                  startContent={<Hash size={16} className="text-default-400" />}
                   isRequired
                 />
               </div>
