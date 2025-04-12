@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
-export default function ResetPasswordPage() {
+// Component that uses useSearchParams
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -298,5 +299,25 @@ export default function ResetPasswordPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-default-100 p-4">
+          <Card className="w-full max-w-md shadow-lg border-none">
+            <CardBody className="flex flex-col justify-center items-center p-8">
+              <Spinner color="primary" size="lg" />
+              <p className="mt-4 text-default-500">Loading...</p>
+            </CardBody>
+          </Card>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
