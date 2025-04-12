@@ -243,13 +243,13 @@ export default function SaleDetail({ isOpen, onOpenChange, sale, loading }) {
           >
             Close
           </Button>
-          <Button
+          {/* <Button
             color="primary"
             onPress={handlePrint}
             startContent={<Printer size={16} />}
           >
             Print Invoice
-          </Button>
+          </Button> */}
         </ModalFooter>
       </ModalContent>
     </Modal>
