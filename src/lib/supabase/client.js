@@ -270,14 +270,22 @@ export const itemApi = {
 // Helper functions for working with inventory
 export const inventoryApi = {
     // Get all inventory items with their item names
-    async getAllInventory() {
-        const { data, error } = await supabase
+    // Get all inventory items with their item names
+    async getAllInventory(statusFilter = null) {
+        let query = supabase
             .from('inventory')
             .select(`
-                *,
-                item:items(id, name, abbreviation)
-            `)
+            *,
+            item:items(id, name, abbreviation)
+        `)
             .order('created_at', { ascending: false });
+
+        // If a status filter is provided, apply it
+        if (statusFilter) {
+            query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         return data;
@@ -461,5 +469,139 @@ export const inventoryApi = {
 
         if (error) throw error;
         return data[0];
+    }
+};
+
+// Helper functions for working with sales
+export const salesApi = {
+    // Get all sales with customer information
+    async getAllSales() {
+        const { data, error } = await supabase
+            .from('sales')
+            .select(`
+        *,
+        sale_items:sale_items(
+          id, 
+          price,
+          inventory:inventory(
+            id, 
+            tag_number,
+            item:items(id, name, abbreviation)
+          )
+        )
+      `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Get a single sale by ID with all its items
+    async getSaleById(id) {
+        const { data, error } = await supabase
+            .from('sales')
+            .select(`
+        *,
+        sale_items:sale_items(
+          id, 
+          price,
+          inventory:inventory(
+            id, 
+            tag_number,
+            description,
+            net_weight,
+            karat,
+            pure_gold,
+            images,
+            item:items(id, name, abbreviation)
+          )
+        )
+      `)
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Create a new sale transaction with multiple items
+    async createSale(saleData) {
+        // Start a transaction
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+
+        // Destructure items from sale data
+        const { items, ...saleInfo } = saleData;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            throw new Error('At least one item must be selected for the sale');
+        }
+
+        // Calculate total amount
+        const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
+
+        // Insert sale record first
+        const { data: newSale, error: saleError } = await supabase
+            .from('sales')
+            .insert({
+                ...saleInfo,
+                user_id: user.id,
+                total_amount: totalAmount,
+            })
+            .select()
+            .single();
+
+        if (saleError) {
+            console.error('Error creating sale:', saleError);
+            throw new Error(`Failed to create sale: ${saleError.message}`);
+        }
+
+        // Insert each sale item
+        try {
+            for (const item of items) {
+                const { error: itemError } = await supabase
+                    .from('sale_items')
+                    .insert({
+                        sale_id: newSale.id,
+                        inventory_id: item.inventory_id,
+                        price: parseFloat(item.price),
+                    });
+
+                if (itemError) {
+                    throw new Error(`Failed to add item to sale: ${itemError.message}`);
+                }
+            }
+
+            return newSale;
+        } catch (error) {
+            // If an error occurs after creating the sale, we should log it
+            // but not roll back, as the triggers will still have executed
+            console.error('Error adding items to sale:', error);
+            throw error;
+        }
+    },
+
+    // Get available inventory items for sale
+    async getAvailableInventory() {
+        const { data, error } = await supabase
+            .from('inventory')
+            .select(`
+        id, 
+        tag_number, 
+        description,
+        net_weight,
+        karat,
+        pure_gold,
+        images,
+        item:items(id, name, abbreviation)
+      `)
+            .eq('status', 'available')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
     }
 };
