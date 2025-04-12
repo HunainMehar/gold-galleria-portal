@@ -54,7 +54,7 @@ export default function InventoryPage() {
   const fetchInventory = async () => {
     setLoading(true);
     try {
-      const data = await inventoryApi.getAllInventory();
+      const data = await inventoryApi.getAllInventory("available"); // Only fetch available items
       setInventory(data);
       applyFilters(data, searchTerm);
     } catch (error) {
