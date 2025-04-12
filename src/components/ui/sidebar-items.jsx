@@ -10,6 +10,7 @@ import {
   Users as UsersIcon,
   Package,
   Archive,
+  Receipt,
 } from "lucide-react";
 
 // Define the SidebarItemType enum
@@ -55,6 +56,12 @@ export const adminItems = [
         href: "/home/inventory",
         icon: Archive,
         title: "Inventory",
+      },
+      {
+        key: "sales",
+        href: "/home/sales",
+        icon: Receipt,
+        title: "Sales",
       },
       // {
       //   key: "users",
