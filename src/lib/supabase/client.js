@@ -267,6 +267,7 @@ export const itemApi = {
 };
 
 // Helper functions for working with inventory
+// Helper functions for working with inventory
 export const inventoryApi = {
     // Get all inventory items with their item names
     async getAllInventory() {
@@ -328,6 +329,13 @@ export const inventoryApi = {
             status: 'available' // Ensure status is set to available for new items
         };
 
+        // Handle the transition from quantity to no_of_pieces
+        // If the legacy 'quantity' field is provided but 'no_of_pieces' is not, use quantity
+        if (inventoryData.quantity !== undefined && inventoryData.no_of_pieces === undefined) {
+            inventoryData.no_of_pieces = inventoryData.quantity;
+            delete inventoryData.quantity; // Remove the legacy field
+        }
+
         // Remove any calculated fields in case they were accidentally included
         delete inventoryData.total_weight;
         delete inventoryData.pure_gold;
@@ -349,8 +357,16 @@ export const inventoryApi = {
 
     // Update an existing inventory item
     async updateInventory(id, inventoryItem) {
-        // Remove any calculated fields in case they were accidentally included
+        // Handle the transition from quantity to no_of_pieces
         const updateData = { ...inventoryItem };
+
+        // If the legacy 'quantity' field is provided but 'no_of_pieces' is not, use quantity
+        if (updateData.quantity !== undefined && updateData.no_of_pieces === undefined) {
+            updateData.no_of_pieces = updateData.quantity;
+            delete updateData.quantity; // Remove the legacy field
+        }
+
+        // Remove any calculated fields in case they were accidentally included
         delete updateData.total_weight;
         delete updateData.pure_gold;
         delete updateData.status; // Prevent changing status through normal update
