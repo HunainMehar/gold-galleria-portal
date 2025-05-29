@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Button,
   Card,
@@ -27,6 +27,7 @@ import {
 } from "@heroui/react";
 import { inventoryApi } from "@/lib/supabase/client";
 import InventoryForm from "@/components/ui/inventory-form";
+import PrintableTag from "@/components/ui/printable-tag";
 import {
   PlusCircle,
   Edit,
@@ -38,6 +39,7 @@ import {
   Download,
   FileText,
   Hash,
+  Printer,
 } from "lucide-react";
 
 export default function InventoryPage() {
@@ -47,6 +49,9 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentItem, setCurrentItem] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [printingItem, setPrintingItem] = useState(null);
+  const [isPrintView, setIsPrintView] = useState(false);
+  const printRef = useRef();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
   const itemsPerPage = 10;
@@ -114,10 +119,137 @@ export default function InventoryPage() {
     onOpen();
   };
 
-  const handleViewDetails = (item) => {
-    // This could be expanded in the future to show a detailed view
-    setCurrentItem(item);
-    onOpen();
+  const handlePrintTag = (item) => {
+    setPrintingItem(item);
+    setIsPrintView(true);
+
+    // Create a new window for printing
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Tag - ${item.tag_number}</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              width: 100vw;
+              height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: white;
+              font-family: Arial, sans-serif;
+            }
+            
+            .jewelry-tag {
+              width: 25mm;
+              height: 50mm;
+              background: white;
+              color: black;
+              border: 1px solid #000;
+              padding: 1mm;
+              display: flex;
+              flex-direction: column;
+              justify-content: flex-start;
+              box-sizing: border-box;
+            }
+            
+            .tag-number {
+              font-size: 7px;
+              font-weight: bold;
+              margin-bottom: 0.5mm;
+              text-align: left;
+            }
+            
+            .tag-detail {
+              display: flex;
+              justify-content: space-between;
+              font-size: 6px;
+              line-height: 1.1;
+              margin-bottom: 0.2mm;
+            }
+            
+            .tag-label {
+              font-weight: normal;
+            }
+            
+            .tag-value {
+              font-weight: normal;
+            }
+            
+            @media print {
+              body {
+                width: 100%;
+                height: 100%;
+              }
+              .jewelry-tag {
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="jewelry-tag">
+            <div class="tag-number">
+              ${item.tag_number}
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Nw</span>
+              <span class="tag-value">${parseFloat(item.net_weight || 0).toFixed(3)}</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Pw</span>
+              <span class="tag-value">${parseFloat(item.polish_weight || 0).toFixed(3)}</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Tw</span>
+              <span class="tag-value">${parseFloat(item.total_weight || 0).toFixed(3)}</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Sw</span>
+              <span class="tag-value">${parseFloat(item.stone_weight || 0).toFixed(3)}</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Bdw</span>
+              <span class="tag-value">0.00</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Qty</span>
+              <span class="tag-value">${item.no_of_pieces || item.quantity || 1}</span>
+            </div>
+            
+            <div class="tag-detail">
+              <span class="tag-label">Kt</span>
+              <span class="tag-value">${item.karat}</span>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+
+    // Wait for the content to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+        setPrintingItem(null);
+        setIsPrintView(false);
+      }, 500);
+    };
   };
 
   const formatWeight = (weight) => {
@@ -186,104 +318,18 @@ export default function InventoryPage() {
     startIndex + itemsPerPage
   );
 
-  // Function to export inventory data to CSV
-  const exportToCSV = () => {
-    try {
-      // Prepare CSV headers and data
-      const headers = [
-        "Tag Number",
-        "Item",
-        "Description",
-        "No. of Pieces",
-        "Karat",
-        "Net Weight (g)",
-        "Total Weight (g)",
-        "Pure Gold (g)",
-        "Status",
-        "Date Added",
-      ];
-
-      // Map inventory data to CSV rows
-      const rows = filteredInventory.map((item) => [
-        item.tag_number || "",
-        (item.item?.name || "") +
-          (item.item?.abbreviation ? ` (${item.item.abbreviation})` : ""),
-        item.description || "",
-        getPiecesCount(item),
-        item.karat || "",
-        item.net_weight ? parseFloat(item.net_weight).toFixed(3) : "0.000",
-        item.total_weight ? parseFloat(item.total_weight).toFixed(3) : "0.000",
-        item.pure_gold ? parseFloat(item.pure_gold).toFixed(3) : "0.000",
-        item.status || "available",
-        new Date(item.created_at).toLocaleDateString(),
-      ]);
-
-      // Create CSV content
-      const csvContent = [
-        headers.join(","),
-        ...rows.map((row) =>
-          row
-            .map((cell) =>
-              // Handle cells that might need quotes (if they contain commas, quotes, or newlines)
-              typeof cell === "string" &&
-              (cell.includes(",") || cell.includes('"') || cell.includes("\n"))
-                ? `"${cell.replace(/"/g, '""')}"`
-                : cell
-            )
-            .join(",")
-        ),
-      ].join("\n");
-
-      // Create a blob and download link
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `inventory_export_${new Date().toISOString().split("T")[0]}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      addToast({
-        title: "Export Successful",
-        description: "Inventory data has been exported to CSV",
-        color: "success",
-        variant: "flat",
-        radius: "md",
-        icon: "success",
-      });
-    } catch (error) {
-      console.error("Error exporting inventory data:", error);
-      addToast({
-        title: "Export Failed",
-        description: "There was a problem exporting the inventory data",
-        color: "danger",
-        variant: "flat",
-        radius: "md",
-        icon: "error",
-      });
-    }
-  };
-
   return (
     <div>
+      {/* Hidden print component for fallback */}
+      {isPrintView && printingItem && (
+        <div style={{ display: "none" }}>
+          <PrintableTag item={printingItem} />
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Inventory</h1>
         <div className="flex gap-2">
-          {/* <Tooltip content="Export inventory to CSV">
-            <Button
-              variant="flat"
-              color="secondary"
-              onPress={exportToCSV}
-              startContent={<Download size={18} />}
-              isDisabled={filteredInventory.length === 0}
-            >
-              Export
-            </Button>
-          </Tooltip> */}
           <Button
             color="primary"
             onPress={handleAddInventory}
@@ -424,14 +470,24 @@ export default function InventoryPage() {
                       <TableCell>{item.karat}K</TableCell>
                       <TableCell>{formatWeight(item.pure_gold)}</TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="light"
-                          onPress={() => handleEditInventory(item)}
-                          startContent={<Edit size={16} />}
-                        >
-                          Edit
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="light"
+                            onPress={() => handleEditInventory(item)}
+                            startContent={<Edit size={16} />}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="light"
+                            onPress={() => handlePrintTag(item)}
+                            startContent={<Printer size={16} />}
+                          >
+                            Print
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
