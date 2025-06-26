@@ -24,8 +24,10 @@ import {
   Image,
   Chip,
   Tooltip,
+  Select,
+  SelectItem,
 } from "@heroui/react";
-import { inventoryApi } from "@/lib/supabase/client";
+import { inventoryApi, itemApi } from "@/lib/supabase/client";
 import InventoryForm from "@/components/ui/inventory-form";
 import PrintableTag from "@/components/ui/printable-tag";
 import {
@@ -40,6 +42,8 @@ import {
   FileText,
   Hash,
   Printer,
+  Package,
+  X,
 } from "lucide-react";
 
 export default function InventoryPage() {
@@ -51,6 +55,11 @@ export default function InventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [printingItem, setPrintingItem] = useState(null);
   const [isPrintView, setIsPrintView] = useState(false);
+  const [items, setItems] = useState([]);
+  // Change state to hold a Set, initialized with 'all' as the default selected key
+  const [selectedItemFilter, setSelectedItemFilter] = useState(
+    new Set(["all"])
+  );
   const printRef = useRef();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
@@ -61,7 +70,13 @@ export default function InventoryPage() {
     try {
       const data = await inventoryApi.getAllInventory("available"); // Only fetch available items
       setInventory(data);
-      applyFilters(data, searchTerm);
+      // Pass the actual string value for filtering, converting from the Set
+      const currentFilterKey = selectedItemFilter.values().next().value;
+      applyFilters(
+        data,
+        searchTerm,
+        currentFilterKey === "all" ? "" : currentFilterKey
+      );
     } catch (error) {
       console.error("Error fetching inventory:", error);
       addToast({
@@ -77,15 +92,31 @@ export default function InventoryPage() {
     }
   };
 
+  const fetchItems = async () => {
+    try {
+      const data = await itemApi.getAllItems();
+      setItems(data);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+    }
+  };
+
   useEffect(() => {
     fetchInventory();
+    fetchItems();
   }, []);
 
   useEffect(() => {
-    applyFilters(inventory, searchTerm);
-  }, [searchTerm]);
+    // Get the actual selected key string from the Set for filtering
+    const currentFilterKey = selectedItemFilter.values().next().value;
+    applyFilters(
+      inventory,
+      searchTerm,
+      currentFilterKey === "all" ? "" : currentFilterKey
+    );
+  }, [searchTerm, selectedItemFilter, inventory]); // Added 'inventory' dependency as applyFilters uses it
 
-  const applyFilters = (data, search) => {
+  const applyFilters = (data, search, itemFilter) => {
     let filtered = [...data];
 
     if (search.trim()) {
@@ -105,6 +136,13 @@ export default function InventoryPage() {
       );
     }
 
+    // Filter only if itemFilter is not empty or 'all'
+    if (itemFilter && itemFilter !== "all") {
+      filtered = filtered.filter(
+        (item) => String(item.item_id) === String(itemFilter)
+      );
+    }
+
     setFilteredInventory(filtered);
     setCurrentPage(1);
   };
@@ -117,6 +155,11 @@ export default function InventoryPage() {
   const handleEditInventory = (item) => {
     setCurrentItem(item);
     onOpen();
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedItemFilter(new Set(["all"])); // Reset to 'all' for the Select component
   };
 
   const handlePrintTag = (item) => {
@@ -349,6 +392,41 @@ export default function InventoryPage() {
           className="flex-grow"
           clearable
         />
+        <Select
+          placeholder="Filter by item"
+          // selectedKeys expects a Set of keys. Pass the state directly.
+          selectedKeys={selectedItemFilter}
+          // Use onSelectionChange for selecting items, it returns a Set.
+          onSelectionChange={(keys) => {
+            setSelectedItemFilter(keys);
+          }}
+          startContent={<Package size={18} className="text-default-400" />}
+          className="md:w-64"
+        >
+          {/* Key for "All Items" must be unique and consistent with initial state */}
+          <SelectItem key="all" value="all">
+            All Items
+          </SelectItem>
+          {items.map((item) => (
+            // Ensure item.id is a string if it's a number, for consistency with Set keys
+            <SelectItem key={String(item.id)} value={String(item.id)}>
+              {item.name}
+              {item.abbreviation && ` (${item.abbreviation})`}
+            </SelectItem>
+          ))}
+        </Select>
+        {/* Check if searchTerm has a value or if selectedItemFilter is not 'all' */}
+        {(searchTerm ||
+          (selectedItemFilter.size > 0 && !selectedItemFilter.has("all"))) && (
+          <Button
+            variant="flat"
+            color="default"
+            onPress={clearFilters}
+            startContent={<X size={18} />}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -396,7 +474,17 @@ export default function InventoryPage() {
 
       <Card>
         <CardHeader className="flex justify-between items-center">
-          <div>Inventory Items</div>
+          <div className="flex items-center gap-2">
+            <span>Inventory Items</span>
+            {/* Show "Filtered" chip if searchTerm or if a specific item is selected */}
+            {(searchTerm ||
+              (selectedItemFilter.size > 0 &&
+                !selectedItemFilter.has("all"))) && (
+              <Chip size="sm" color="primary" variant="flat">
+                Filtered
+              </Chip>
+            )}
+          </div>
           <div className="text-default-500 text-sm">
             {filteredInventory.length} item
             {filteredInventory.length !== 1 ? "s" : ""} found
