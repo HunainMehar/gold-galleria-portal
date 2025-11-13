@@ -71,7 +71,7 @@ export default function InventoryPage() {
       const data = await inventoryApi.getAllInventory("available"); // Only fetch available items
       setInventory(data);
       // Pass the actual string value for filtering, converting from the Set
-      const currentFilterKey = selectedItemFilter.values().next().value;
+      const currentFilterKey = selectedItemFilter.values().next().value || "all";
       applyFilters(
         data,
         searchTerm,
@@ -108,7 +108,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     // Get the actual selected key string from the Set for filtering
-    const currentFilterKey = selectedItemFilter.values().next().value;
+    const currentFilterKey = selectedItemFilter.values().next().value || "all";
     applyFilters(
       inventory,
       searchTerm,
@@ -394,14 +394,29 @@ export default function InventoryPage() {
         />
         <Select
           placeholder="Filter by item"
-          // selectedKeys expects a Set of keys. Pass the state directly.
           selectedKeys={selectedItemFilter}
-          // Use onSelectionChange for selecting items, it returns a Set.
-          onSelectionChange={(keys) => {
-            setSelectedItemFilter(keys);
-          }}
+          onSelectionChange={setSelectedItemFilter}
           startContent={<Package size={18} className="text-default-400" />}
           className="md:w-64"
+          renderValue={(selectedItems) => {
+            if (selectedItems.length === 0) {
+              return "All Items";
+            }
+            const selectedKey = selectedItems[0].key;
+            if (selectedKey === "all") {
+              return "All Items";
+            }
+            const selectedItem = items.find(
+              (item) => String(item.id) === selectedKey
+            );
+            return selectedItem
+              ? `${selectedItem.name}${
+                  selectedItem.abbreviation
+                    ? ` (${selectedItem.abbreviation})`
+                    : ""
+                }`
+              : "";
+          }}
         >
           {/* Key for "All Items" must be unique and consistent with initial state */}
           <SelectItem key="all" value="all">
@@ -422,7 +437,7 @@ export default function InventoryPage() {
             variant="flat"
             color="default"
             onPress={clearFilters}
-            startContent={<X size={18} />}
+            startContent={<X size={36} />}
           >
             Clear
           </Button>
